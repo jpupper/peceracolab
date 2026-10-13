@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AQUAVERSE 3D | Gran Simulador de Pecera Gigante Multiusuario</title>
+    <meta name="description" content="Simulador 3D interactivo y colaborativo en tiempo real de una pecera gigante con modelos creados en Blender, Three.js y Sockets.">
+    
+    <!-- Fuentes Google: Outfit e Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- Import Map para Three.js ES Modules nativos -->
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "/three/build/three.module.js",
+        "three/addons/": "/three/examples/jsm/"
+      }
+    }
+    </script>
+</head>
+<body>
+    <!-- Canvas 3D Principal -->
+    <canvas id="aquarium-canvas"></canvas>
+
+    <!-- Capa de Punteros de Mouse Multiusuario en Tiempo Real -->
+    <div id="cursors-overlay"></div>
+
+    <!-- Interfaz de Usuario (HUD) -->
+    <div id="hud-container">
+        <!-- Barra Superior -->
+        <header id="main-header">
+            <div class="logo-area">
+                <span class="logo-icon">🐠</span>
+                <div class="logo-text">
+                    <h1>AQUAVERSE 3D</h1>
+                    <span class="sub-badge">Pecera Multiusuario en Vivo</span>
+                </div>
+            </div>
+
+            <!-- Panel de Estado y Clientes Conectados -->
+            <div class="status-center">
+                <div class="badge-online" id="online-counter-badge">
+                    <span class="pulse-dot"></span>
+                    <span id="online-count">1 Conectado</span>
+                </div>
+                <div class="users-avatars-list" id="users-avatars-list">
+                    <!-- Se llena dinámicamente con los avatares de los usuarios -->
+                </div>
+            </div>
+
+            <!-- Acciones Rápidas -->
+            <div class="header-actions">
+                <button id="btn-sound" class="btn-icon" title="Sonido Ambiente y Efectos">
+                    <span id="sound-icon">🔊</span>
+                </button>
+                <button id="btn-feed" class="btn-action btn-feed" title="Tirar comida a los peces">
+                    <span class="btn-emoji">🦐</span> Tirar Comida
+                </button>
+                <button id="btn-lighting" class="btn-action btn-lighting" title="Alternar iluminación">
+                    <span class="btn-emoji">💡</span> <span id="lighting-text">Modo Noche</span>
+                </button>
+                <button id="btn-open-spawn" class="btn-action btn-primary" title="Agregar tu propio pez">
+                    <span class="btn-emoji">➕</span> Agregar Pez
+                </button>
+            </div>
+        </header>
+
+        <!-- Indicador de Perfil Propio -->
+        <div id="self-profile-badge">
+            <span class="profile-color-indicator" id="self-color-dot"></span>
+            <span class="profile-name" id="self-username">Conectando...</span>
+        </div>
+
+        <!-- Notificaciones Flotantes (Toasts) -->
+        <div id="toast-container"></div>
+
+        <!-- Barra Inferior de Información y Controles -->
+        <footer id="main-footer">
+            <div class="tank-stats">
+                <span class="stat-item"><strong id="fish-count">0</strong> peces en la pecera</span>
+                <span class="stat-divider">•</span>
+                <span class="stat-item"><strong id="interactions-count">0</strong> caricias realizadas</span>
+            </div>
+            <div class="hints-list">
+                <span class="hint-badge">🖱️ <strong>Rotar:</strong> Click Izquierdo + Arrastrar</span>
+                <span class="hint-badge">🔍 <strong>Zoom:</strong> Rueda del Mouse</span>
+                <span class="hint-badge">👆 <strong>Interactuar:</strong> Click en cualquier pez</span>
+                <span class="hint-badge">👥 <strong>Multijugador:</strong> Punteros visibles en vivo</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Modal / Panel Desplegable para Agregar Pez -->
+    <div id="spawn-modal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="modal-title-group">
+                    <span class="modal-icon">🐟</span>
+                    <h2>Liberar un Nuevo Pez en la Pecera</h2>
+                </div>
+                <button id="btn-close-modal" class="btn-close" aria-label="Cerrar modal">&times;</button>
+            </div>
+
+            <div class="modal-body">
+                <!-- Selector de Especie -->
+                <div class="form-group">
+                    <label class="form-label">Elige la Especie de Pez (Modelos 3D de Blender):</label>
+                    <div class="fish-species-grid">
+                        <div class="species-card selected" data-type="clownfish">
+                            <span class="species-emoji">🐠</span>
+                            <span class="species-title">Pez Payaso</span>
+                            <span class="species-desc">Ágil y juguetón (Estilo Nemo)</span>
+                        </div>
+                        <div class="species-card" data-type="angelfish">
+                            <span class="species-emoji">🐟</span>
+                            <span class="species-title">Pez Ángel</span>
+                            <span class="species-desc">Elegante y majestuoso</span>
+                        </div>
+                        <div class="species-card" data-type="bluetang">
+                            <span class="species-emoji">🐡</span>
+                            <span class="species-title">Cirujano Azul</span>
+                            <span class="species-desc">Rápido y curioso (Estilo Dory)</span>
+                        </div>
+                        <div class="species-card" data-type="pufferfish">
+                            <span class="species-emoji">🐡</span>
+                            <span class="species-title">Pez Globo</span>
+                            <span class="species-desc">Rechoncho y simpático</span>
+                        </div>
+                        <div class="species-card" data-type="goldfish">
+                            <span class="species-emoji">✨</span>
+                            <span class="species-title">Pez Dorado</span>
+                            <span class="species-desc">Cola doble brillante</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Nombre del Pez -->
+                <div class="form-group">
+                    <label for="fish-name-input" class="form-label">Nombre del Pez:</label>
+                    <input type="text" id="fish-name-input" class="form-input" placeholder="Ej: Burbujas, Poseidón, Spark..." maxlength="25">
+                </div>
+
+                <!-- Paleta de Color de Acento -->
+                <div class="form-group">
+                    <label class="form-label">Color de Tinte Personalizado:</label>
+                    <div class="color-palette-options">
+                        <button type="button" class="color-dot selected" style="background: #ff6600;" data-color="#ff6600"></button>
+                        <button type="button" class="color-dot" style="background: #00f0ff;" data-color="#00f0ff"></button>
+                        <button type="button" class="color-dot" style="background: #ff007f;" data-color="#ff007f"></button>
+                        <button type="button" class="color-dot" style="background: #a855f7;" data-color="#a855f7"></button>
+                        <button type="button" class="color-dot" style="background: #22c55e;" data-color="#22c55e"></button>
+                        <button type="button" class="color-dot" style="background: #eab308;" data-color="#eab308"></button>
+                        <button type="button" class="color-dot" style="background: #f43f5e;" data-color="#f43f5e"></button>
+                        <input type="color" id="fish-custom-color" class="custom-color-picker" value="#ff6600" title="Elegir otro color">
+                    </div>
+                </div>
+
+                <!-- Sliders de Tamaño y Velocidad -->
+                <div class="form-row">
+                    <div class="form-group flex-1">
+                        <label for="fish-size-slider" class="form-label">Tamaño: <span id="size-val">1.1x</span></label>
+                        <input type="range" id="fish-size-slider" class="form-slider" min="0.7" max="1.7" step="0.1" value="1.1">
+                    </div>
+                    <div class="form-group flex-1">
+                        <label for="fish-speed-slider" class="form-label">Velocidad: <span id="speed-val">1.2x</span></label>
+                        <input type="range" id="fish-speed-slider" class="form-slider" min="0.7" max="2.2" step="0.1" value="1.2">
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" id="btn-cancel-spawn" class="btn-secondary">Cancelar</button>
+                <button type="button" id="btn-confirm-spawn" class="btn-primary">
+                    <span class="btn-emoji">🌊</span> ¡Soltar en la Pecera!
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Socket.IO Client -->
+    <script src="/socket.io/socket.io.js"></script>
+
+    <!-- Código Principal de la Aplicación -->
+    <script type="module" src="main.js"></script>
+</body>
+</html>
