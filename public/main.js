@@ -113,8 +113,8 @@ const soundFX = new SoundFXManager();
 // ==========================================================
 const canvas = document.getElementById('aquarium-canvas');
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x020a17);
-scene.fog = new THREE.FogExp2(0x04132b, 0.018);
+scene.background = new THREE.Color(0x13041a);
+scene.fog = new THREE.FogExp2(0x190524, 0.018);
 
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.set(0, 3, 30);
@@ -143,13 +143,13 @@ const TANK = {
 };
 
 // ==========================================================
-// 3. ILUMINACIÓN AMBIENTAL Y REFLEJOS SUBMARINOS
+// 3. ILUMINACIÓN AMBIENTAL Y REFLEJOS SUBMARINOS SATURNO
 // ==========================================================
-const ambientLight = new THREE.AmbientLight(0x0d3868, 1.8);
+const ambientLight = new THREE.AmbientLight(0x4a1038, 1.8);
 scene.add(ambientLight);
 
-// Luz del sol atravesando el agua
-const sunLight = new THREE.DirectionalLight(0x7dd3fc, 2.5);
+// Luz del sol atravesando el agua con reflejos rosa/magenta
+const sunLight = new THREE.DirectionalLight(0xf472b6, 2.5);
 sunLight.position.set(5, 20, 8);
 sunLight.castShadow = true;
 sunLight.shadow.mapSize.width = 1024;
@@ -162,12 +162,12 @@ sunLight.shadow.camera.top = 16;
 sunLight.shadow.camera.bottom = -16;
 scene.add(sunLight);
 
-// Luces bioluminiscentes en corales
-const bluePointLight = new THREE.PointLight(0x00f0ff, 2.0, 25);
+// Luces bioluminiscentes rosa neón
+const bluePointLight = new THREE.PointLight(0xff2a8d, 2.4, 25);
 bluePointLight.position.set(-8, -4, 2);
 scene.add(bluePointLight);
 
-const pinkPointLight = new THREE.PointLight(0xff007f, 1.8, 25);
+const pinkPointLight = new THREE.PointLight(0xf43f5e, 2.2, 25);
 pinkPointLight.position.set(8, -4, 2);
 scene.add(pinkPointLight);
 
@@ -176,25 +176,25 @@ function toggleLighting() {
     isNightMode = !isNightMode;
     const lightText = document.getElementById('lighting-text');
     if (isNightMode) {
-        scene.background.set(0x01040a);
-        scene.fog.color.set(0x010714);
-        ambientLight.intensity = 0.7;
-        sunLight.intensity = 0.6;
-        sunLight.color.set(0x38bdf8);
-        bluePointLight.intensity = 3.5;
-        pinkPointLight.intensity = 3.2;
+        scene.background.set(0x0a010f);
+        scene.fog.color.set(0x0e0214);
+        ambientLight.intensity = 0.8;
+        sunLight.intensity = 0.7;
+        sunLight.color.set(0xff70ba);
+        bluePointLight.intensity = 3.8;
+        pinkPointLight.intensity = 3.5;
         if (lightText) lightText.textContent = 'Modo Día';
-        showToast('🌙 Modo Noche Bioluminiscente activado', '#38bdf8');
+        showToast('🌙 Modo Saturno Noche activado', '#ff2a8d');
     } else {
-        scene.background.set(0x020a17);
-        scene.fog.color.set(0x04132b);
+        scene.background.set(0x13041a);
+        scene.fog.color.set(0x190524);
         ambientLight.intensity = 1.8;
         sunLight.intensity = 2.5;
-        sunLight.color.set(0x7dd3fc);
-        bluePointLight.intensity = 2.0;
-        pinkPointLight.intensity = 1.8;
+        sunLight.color.set(0xf472b6);
+        bluePointLight.intensity = 2.4;
+        pinkPointLight.intensity = 2.2;
         if (lightText) lightText.textContent = 'Modo Noche';
-        showToast('☀️ Modo Día Tropical activado', '#00f0ff');
+        showToast('🪐 Modo Saturno Rosa activado', '#f43f5e');
     }
 }
 
@@ -204,9 +204,9 @@ function toggleLighting() {
 function buildAquariumStructure() {
     const tankGroup = new THREE.Group();
 
-    // Material de Cristal Refractario con tinte aguamarina
+    // Material de Cristal Refractario con tinte rosa translúcido
     const glassMaterial = new THREE.MeshPhysicalMaterial({
-        color: 0x38bdf8,
+        color: 0xf472b6,
         transparent: true,
         opacity: 0.22,
         roughness: 0.05,
@@ -245,12 +245,12 @@ function buildAquariumStructure() {
     rightWall.rotation.y = -Math.PI / 2;
     tankGroup.add(rightWall);
 
-    // Superficie superior del agua con ondas
+    // Superficie superior del agua con ondas rosa/magenta
     const waterGeo = new THREE.PlaneGeometry(TANK.w, TANK.d, 32, 32);
     const waterMat = new THREE.MeshPhysicalMaterial({
-        color: 0x00f0ff,
+        color: 0xff2a8d,
         transparent: true,
-        opacity: 0.5,
+        opacity: 0.45,
         roughness: 0.1,
         transmission: 0.6,
         side: THREE.DoubleSide
@@ -338,10 +338,10 @@ for (let i = 0; i < PLANKTON_COUNT * 3; i += 3) {
 }
 planktonGeo.setAttribute('position', new THREE.BufferAttribute(planktonPositions, 3));
 const planktonMat = new THREE.PointsMaterial({
-    color: 0x38bdf8,
-    size: 0.12,
+    color: 0xff70ba,
+    size: 0.13,
     transparent: true,
-    opacity: 0.55,
+    opacity: 0.6,
     blending: THREE.AdditiveBlending
 });
 const planktonParticles = new THREE.Points(planktonGeo, planktonMat);
@@ -349,7 +349,7 @@ scene.add(planktonParticles);
 
 // Partículas de efectos de interacción (estallido de caricia)
 const burstParticles = [];
-function createBurstParticles(x, y, z, colorHex = '#00f0ff') {
+function createBurstParticles(x, y, z, colorHex = '#ff2a8d') {
     const count = 35;
     const group = new THREE.Group();
     const mat = new THREE.MeshBasicMaterial({
@@ -589,7 +589,7 @@ function updateUsersListHUD(users) {
     }
 }
 
-function showToast(htmlMessage, accentColor = '#00f0ff') {
+function showToast(htmlMessage, accentColor = '#ff2a8d') {
     const container = document.getElementById('toast-container');
     if (!container) return;
     const toast = document.createElement('div');
@@ -618,7 +618,7 @@ socket.on('init_state', (data) => {
         instantiateFish(fishData);
     });
 
-    showToast(`🌊 ¡Bienvenido/a a la Pecera, <strong>${selfUser.name}</strong>!`, selfUser.color);
+    showToast(`🪐 ¡Bienvenido/a a SATURNO 3D, <strong>${selfUser.name}</strong>!`, selfUser.color);
 });
 
 // Nuevo usuario conectado
