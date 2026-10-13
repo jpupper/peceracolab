@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const server = http.createServer(app);
@@ -13,6 +14,143 @@ const io = new Server(server, {
 });
 
 const PORT = process.env.PORT || 2470;
+
+// ==========================================================
+// INTEGRACIÓN DE TELEGRAM BOT (@pecera24_bot)
+// ==========================================================
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8903178207:AAEFAlviXYg5KLTk3ZLDp8U2rX2cruzgpjc';
+const CHATS_FILE = path.join(__dirname, 'telegram_chats.json');
+
+// Conjunto de Chat IDs registrados para recibir alertas
+let registeredChatIds = new Set();
+try {
+    if (fs.existsSync(CHATS_FILE)) {
+        const saved = JSON.parse(fs.readFileSync(CHATS_FILE, 'utf-8'));
+        if (Array.isArray(saved)) {
+            saved.forEach(id => registeredChatIds.add(id));
+        }
+    }
+} catch (e) {
+    console.warn('[TELEGRAM] Aviso: No se pudo leer telegram_chats.json:', e.message);
+}
+
+if (process.env.TELEGRAM_CHAT_ID) {
+    registeredChatIds.add(process.env.TELEGRAM_CHAT_ID);
+}
+
+function saveRegisteredChats() {
+    try {
+        fs.writeFileSync(CHATS_FILE, JSON.stringify(Array.from(registeredChatIds), null, 2), 'utf-8');
+    } catch (e) {
+        console.warn('[TELEGRAM] Error guardando telegram_chats.json:', e.message);
+    }
+}
+
+let lastTelegramUpdateId = 0;
+
+// Función para enviar mensaje directo por Telegram
+async function sendTelegramMessage(chatId, htmlText) {
+    try {
+        const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: chatId,
+                text: htmlText,
+                parse_mode: 'HTML'
+            })
+        });
+        const data = await res.json();
+        return data.ok;
+    } catch (err) {
+        console.error(`[TELEGRAM] Error de red enviando mensaje a ${chatId}:`, err.message);
+        return false;
+    }
+}
+
+// Sondeo de mensajes para vincular automáticamente a cualquier usuario que hable con el bot
+async function checkTelegramUpdates() {
+    try {
+        const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates?offset=${lastTelegramUpdateId + 1}&timeout=3`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data.ok && Array.isArray(data.result)) {
+            for (const update of data.result) {
+                lastTelegramUpdateId = update.update_id;
+                const msg = update.message;
+                if (msg && msg.chat && msg.chat.id) {
+                    const chatId = msg.chat.id;
+                    const isNew = !registeredChatIds.has(chatId);
+                    registeredChatIds.add(chatId);
+                    saveRegisteredChats();
+
+                    if (isNew) {
+                        const userName = msg.from ? (msg.from.first_name || msg.from.username || 'Explorador') : 'Explorador';
+                        console.log(`[TELEGRAM] 📱 Nuevo chat vinculado: ${chatId} (${userName})`);
+                        // Mensaje de bienvenida confirmando la vinculación
+                        sendTelegramMessage(chatId,
+                            `🪐 <b>¡Hola ${userName}!</b>\n\n` +
+                            `Te has conectado con éxito a las notificaciones de <b>SATURNO 3D</b> 🐠.\n` +
+                            `A partir de ahora, cada vez que alguien libere un pez en la pecera, te avisaré por aquí en tiempo real.`
+                        );
+                    }
+                }
+            }
+        }
+    } catch (err) {
+        // Silenciar errores temporales de conexión
+    }
+}
+
+// Iniciar polling de Telegram cada 5 segundos
+setInterval(checkTelegramUpdates, 5000);
+checkTelegramUpdates();
+
+// Notificar a todos los chats cuando se agrega un pez
+async function notifyNewFishTelegram(fish, ownerName) {
+    // Si aún no hay chats registrados, intentar sincronizar primero
+    if (registeredChatIds.size === 0) {
+        await checkTelegramUpdates();
+    }
+
+    if (registeredChatIds.size === 0) {
+        console.log(`[TELEGRAM] ⚠️ No hay Chat ID registrado aún.`);
+        console.log(`[TELEGRAM] 💡 Envía /start a @pecera24_bot en Telegram para recibir las alertas.`);
+        return;
+    }
+
+    const speciesNames = {
+        'clownfish': 'Pez Payaso 🐠',
+        'angelfish': 'Pez Ángel 🐟',
+        'bluetang': 'Cirujano Azul 🐡',
+        'pufferfish': 'Pez Globo 🐡',
+        'goldfish': 'Pez Dorado ✨'
+    };
+
+    const speciesLabel = speciesNames[fish.type] || `${fish.type} 🐟`;
+    const nowTime = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+    const message = 
+`🪐 <b>¡NUEVO PEZ EN SATURNO 3D!</b> 🐠\n` +
+`━━━━━━━━━━━━━━━━━━━\n` +
+`🐟 <b>Nombre:</b> ${fish.name}\n` +
+`🏷️ <b>Especie:</b> ${speciesLabel}\n` +
+`🎨 <b>Color:</b> <code>${fish.color}</code>\n` +
+`📏 <b>Tamaño:</b> ${fish.size}x\n` +
+`⚡ <b>Velocidad:</b> ${fish.speed}x\n` +
+`👤 <b>Liberado por:</b> ${ownerName || 'Usuario'}\n` +
+`⏰ <b>Hora:</b> ${nowTime}\n` +
+`━━━━━━━━━━━━━━━━━━━\n` +
+`🌊 <i>¡Entra a la pecera para interactuar con él!</i>`;
+
+    for (const chatId of registeredChatIds) {
+        const ok = await sendTelegramMessage(chatId, message);
+        if (ok) {
+            console.log(`[TELEGRAM] ✅ Notificación enviada exitosamente a Chat ID: ${chatId}`);
+        }
+    }
+}
 
 // Servir la carpeta public estática
 app.use(express.static(path.join(__dirname, 'public')));
@@ -241,6 +379,9 @@ io.on('connection', (socket) => {
 
         // Difundir el nuevo pez a todos los clientes conectados
         io.emit('fish_added', newFish);
+
+        // Enviar notificación a Telegram a través del bot @pecera24_bot
+        notifyNewFishTelegram(newFish, newFish.ownerName);
     });
 
     // Interacción al tocar/clickear un pez
