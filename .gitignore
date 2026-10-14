@@ -1,2 +1,5 @@
 node_modules/
 telegram_chats.json
+.env
+.env.local
+.env.*.local

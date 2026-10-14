@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -18,7 +19,10 @@ const PORT = process.env.PORT || 2470;
 // ==========================================================
 // INTEGRACIÓN DE TELEGRAM BOT (@pecera24_bot)
 // ==========================================================
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8903178207:AAEFAlviXYg5KLTk3ZLDp8U2rX2cruzgpjc';
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+if (!TELEGRAM_BOT_TOKEN) {
+    console.warn('[TELEGRAM] ⚠️ No se detectó TELEGRAM_BOT_TOKEN en el archivo .env.');
+}
 const CHATS_FILE = path.join(__dirname, 'telegram_chats.json');
 
 // Conjunto de Chat IDs registrados para recibir alertas
@@ -50,6 +54,7 @@ let lastTelegramUpdateId = 0;
 
 // Función para enviar mensaje directo por Telegram
 async function sendTelegramMessage(chatId, htmlText) {
+    if (!TELEGRAM_BOT_TOKEN) return false;
     try {
         const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
             method: 'POST',
@@ -70,6 +75,7 @@ async function sendTelegramMessage(chatId, htmlText) {
 
 // Sondeo de mensajes para vincular automáticamente a cualquier usuario que hable con el bot
 async function checkTelegramUpdates() {
+    if (!TELEGRAM_BOT_TOKEN) return;
     try {
         const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates?offset=${lastTelegramUpdateId + 1}&timeout=3`;
         const res = await fetch(url);
@@ -109,6 +115,8 @@ checkTelegramUpdates();
 
 // Notificar a todos los chats cuando se agrega un pez
 async function notifyNewFishTelegram(fish, ownerName) {
+    if (!TELEGRAM_BOT_TOKEN) return;
+
     // Si aún no hay chats registrados, intentar sincronizar primero
     if (registeredChatIds.size === 0) {
         await checkTelegramUpdates();
