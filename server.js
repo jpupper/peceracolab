@@ -56,8 +56,9 @@ try {
     console.warn('[TELEGRAM] Aviso: No se pudo leer telegram_chats.json:', e.message);
 }
 
-if (process.env.TELEGRAM_CHAT_ID) {
-    registeredChatIds.add(process.env.TELEGRAM_CHAT_ID);
+const targetChatId = process.env.TELEGRAM_CHAT_ID || '767784020';
+if (targetChatId) {
+    registeredChatIds.add(targetChatId);
 }
 
 function saveRegisteredChats() {
