@@ -5,6 +5,11 @@ const { Server } = require('socket.io');
 const path = require('path');
 const fs = require('fs');
 
+// Soporte para Render Secret Files (Render los monta por defecto en /etc/secrets/.env)
+if (fs.existsSync('/etc/secrets/.env')) {
+    require('dotenv').config({ path: '/etc/secrets/.env' });
+}
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -16,12 +21,25 @@ const io = new Server(server, {
 
 const PORT = process.env.PORT || 2470;
 
+// Endpoint de diagnóstico para verificar el estado en Render fácilmente desde el navegador
+app.get('/api/status', (req, res) => {
+    res.json({
+        ok: true,
+        telegramBotConfigured: Boolean(process.env.TELEGRAM_BOT_TOKEN),
+        registeredChatsCount: registeredChatIds.size,
+        chats: Array.from(registeredChatIds),
+        hint: registeredChatIds.size === 0
+            ? "Envía /start a @pecera24_bot en Telegram para vincular tu chat a las notificaciones"
+            : "¡Bot vinculado y listo para enviar notificaciones!"
+    });
+});
+
 // ==========================================================
 // INTEGRACIÓN DE TELEGRAM BOT (@pecera24_bot)
 // ==========================================================
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 if (!TELEGRAM_BOT_TOKEN) {
-    console.warn('[TELEGRAM] ⚠️ No se detectó TELEGRAM_BOT_TOKEN en el archivo .env.');
+    console.warn('[TELEGRAM] ⚠️ No se detectó TELEGRAM_BOT_TOKEN en las variables de entorno.');
 }
 const CHATS_FILE = path.join(__dirname, 'telegram_chats.json');
 
